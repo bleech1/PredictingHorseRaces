@@ -16,6 +16,7 @@ OUTFILE = "combined_data.csv"
 
 
 def JoinData(horseInfoFile, resultsFile, outFile):
+    # Join the results file and the horse info file on the horse's name
     horseInfo = pd.read_csv(horseInfoFile)
     results = pd.read_csv(resultsFile)
     merged = results.merge(horseInfo, on = "horse")
@@ -30,66 +31,84 @@ def CreateDataSets(combinedFilename):
         # First row is headers
         headers = next(csvReader)
         # Only take the headers that we care about (look below for explanation)
-        headers = [headers[1]] + headers[3:]
+        headers = [headers[1]] + [headers[3]]
+        #headers = [headers[1]] + headers[3:]
         for row in csvReader:
             # 0th element is an index value we can ignore
 
-            # 2nd element is the place (our label)
-            # We are classifying as first, second, third, or worse places
-            # So worse than third place will be represented as 0
-            if (row[2] not in [1, 2, 3]):
-                labels.append(0)
-            else:
-                lables.append(row[2])
-            row = [row[1]] + row[3:]
-            arr = np.array(row)
-            features.append(np.array(arr))
+            #row = [row[1]] + row[3:]
+            # Just choosing 2 float values for our parameters at the beginning
+            # Skip if the value doesn't exist
+            if (row[1] != "" and row[3] != ""):
+                # 2nd element is the place (our label)
+                # We are classifying as first, second, third, or worse places
+                # So worse than third place will be represented as 0
+                if (row[2] not in [1, 2, 3]):
+                    labels.append(0)
+                else:
+                    lables.append(row[2])
 
+                row = [row[1]] + [row[3]]
+                arr = np.array(row)
+                #print(arr)
+                arr = np.asfarray(arr)
+                features.append(np.array(arr))
+
+
+    # Use vstack to make into a matrix that keras can use
     matrix = features[0]
     count = 1
     for row in features[1:]:
-        print(count)
+        #print(count)
         matrix = np.vstack((matrix, row))
         count += 1
 
-    numRows = math.floor(len(features) * 0.8)
+    # Split into train and test sets
+    numRows = math.floor(matrix.shape[0] * 0.8)
     trainData = matrix[:numRows]
     trainLabels = labels[:numRows]
     testData = matrix[numRows + 1:]
     testLabels = labels[numRows + 1:]
+    #testLabels = labels[numRows + 1 : matrix.shape[0]]
     return trainData, trainLabels, testData, testLabels, headers
 
 def CreateModel(numInputFeatures):
+    # Create a model
     model = Sequential()
     model.add(Dense(50, activation = "relu", input_dim = numInputFeatures))
     model.add(Dense(4, activation = "sigmoid"))
     return model
 
 def CompileModel(model):
+    # Compile the model
     model.compile(optimizer = "rmsprop", loss = "categorical_crossentropy", metrics = ["accuracy"])
     return model
 
 def TrainModel(model, trainData, trainLabels):
+    # Turn the labels into one hot labels
     oneHotLabels = to_categorical(trainLabels, num_classes = 4)
+    # Train the model on the training data
     model.fit(trainData, oneHotLabels, epochs = 10, batch_size = 100)
     return model
 
 def EvaluateModel(model, testData, testLabels):
-    score = model.evaluate(testData, testLabels)
+    # Evaluate the model on the testing set
+    oneHotLabels = to_categorical(testLabels, num_classes = 4)
+    score = model.evaluate(testData, oneHotLabels)
     print(score)
 
 
-print("hi")
+print("start")
 JoinData(HORSE_INFO_FILE, RESULTS_FILE, OUTFILE)
-print("hi")
+print("joined")
 trainData, trainLabels, testData, testLabels, headers = CreateDataSets(OUTFILE)
-print("hi")
+print("created data sets")
 numInputFeatures = len(headers)
 print(numInputFeatures)
 model = CreateModel(numInputFeatures)
-print("hi")
+print("created model")
 model = CompileModel(model)
-print("hi")
+print("compiled model")
 model = TrainModel(model, trainData, trainLabels)
-print("hi")
-# EvaluateModel(model, testData, testLabels)
+print("trained model")
+EvaluateModel(model, testData, testLabels)
