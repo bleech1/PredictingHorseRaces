@@ -46,7 +46,7 @@ def CreateDataSets(combinedFilename):
                 if (row[2] not in [1, 2, 3]):
                     labels.append(0)
                 else:
-                    lables.append(row[2])
+                    lables.append(int(row[2]))
 
                 row = [row[1]] + [row[3]]
                 arr = np.array(row)
@@ -63,14 +63,16 @@ def CreateDataSets(combinedFilename):
         matrix = np.vstack((matrix, row))
         count += 1
 
-    # Split into train and test sets
-    numRows = math.floor(matrix.shape[0] * 0.8)
-    trainData = matrix[:numRows]
-    trainLabels = labels[:numRows]
-    testData = matrix[numRows + 1:]
-    testLabels = labels[numRows + 1:]
-    #testLabels = labels[numRows + 1 : matrix.shape[0]]
-    return trainData, trainLabels, testData, testLabels, headers
+    # Split into train, cv, and test sets
+    numTrain = math.floor(matrix.shape[0] * 0.7)
+    numCv = math.floor(matrix.shape[0] * 0.15)
+    trainData = matrix[:numTrain]
+    trainLabels = labels[:numTrain]
+    cvData = matrix[numTrain + 1:numTrain + numCv]
+    cvLabels = labels[numTrain + 1:numTrain + numCv]
+    testData = matrix[numTrain + numCv + 1:]
+    testLabels = labels[numTrain + numCv + 1:]
+    return trainData, trainLabels, cvData, cvLabels, testData, testLabels, headers
 
 def CreateModel(numInputFeatures):
     # Create a model
@@ -101,7 +103,7 @@ def EvaluateModel(model, testData, testLabels):
 print("start")
 JoinData(HORSE_INFO_FILE, RESULTS_FILE, OUTFILE)
 print("joined")
-trainData, trainLabels, testData, testLabels, headers = CreateDataSets(OUTFILE)
+trainData, trainLabels, cvData, cvLabels, testData, testLabels, headers = CreateDataSets(OUTFILE)
 print("created data sets")
 numInputFeatures = len(headers)
 print(numInputFeatures)
@@ -111,4 +113,5 @@ model = CompileModel(model)
 print("compiled model")
 model = TrainModel(model, trainData, trainLabels)
 print("trained model")
-EvaluateModel(model, testData, testLabels)
+EvaluateModel(model, cvData, cvLabels)
+print("evaluated")
