@@ -61,10 +61,10 @@ def CreateDataSets(combinedFilename):
                 # 2nd element is the place (our label)
                 # We are classifying as first, second, third, or worse places
                 # So worse than third place will be represented as 0
-                if (row[2] not in [1, 2, 3]):
+                if (row[2] not in ["1", "2", "3"]):
                     labels.append(0)
                 else:
-                    lables.append(int(row[2]))
+                    labels.append(row[2])
 
                 row = [row[1]] + [row[3]] + [row[43]] + [row[44]] + [row[45]] + [row[46]] + [row[47]] + [row[48]] + [row[49]]
                 arr = np.array(row)
