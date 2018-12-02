@@ -20,6 +20,11 @@ def JoinData(horseInfoFile, resultsFile, outFile):
     horseInfo = pd.read_csv(horseInfoFile)
     results = pd.read_csv(resultsFile)
     merged = results.merge(horseInfo, on = "horse")
+
+    # Shuffle the rows in the dataset
+    merged = merged.reindex(np.random.permutation(merged.index))
+
+    # Write out to a CSV file
     merged.to_csv(outFile, index = False)
 
 def CreateDataSets(combinedFilename):
@@ -31,37 +36,29 @@ def CreateDataSets(combinedFilename):
         # First row is headers
         headers = next(csvReader)
         # Only take the headers that we care about (look below for explanation)
-        headers = [headers[1]] + [headers[3]]
+        headers = [headers[3]]
         #headers = [headers[1]] + headers[3:]
         for row in csvReader:
             # 0th element is an index value we can ignore
 
-            #row = [row[1]] + row[3:]
             # Just choosing 2 float values for our parameters at the beginning
             # Skip if the value doesn't exist
-            if (row[1] != "" and row[3] != ""):
+            if (row[2] != "" and row[3] != "" and row[13] != ""):
                 # 2nd element is the place (our label)
                 # We are classifying as first, second, third, or worse places
                 # So worse than third place will be represented as 0
-                if (row[2] not in [1, 2, 3]):
+                if (row[2] not in ["1", "2", "3"]):
                     labels.append(0)
                 else:
-                    lables.append(int(row[2]))
+                    labels.append(int(row[2]))
 
-                row = [row[1]] + [row[3]]
+                row = [row[3]]
                 arr = np.array(row)
                 #print(arr)
                 arr = np.asfarray(arr)
                 features.append(np.array(arr))
 
-
-    # Use vstack to make into a matrix that keras can use
-    matrix = features[0]
-    count = 1
-    for row in features[1:]:
-        #print(count)
-        matrix = np.vstack((matrix, row))
-        count += 1
+    matrix = np.vstack(features)
 
     # Split into train, cv, and test sets
     numTrain = math.floor(matrix.shape[0] * 0.7)
@@ -90,8 +87,8 @@ def TrainModel(model, trainData, trainLabels):
     # Turn the labels into one hot labels
     oneHotLabels = to_categorical(trainLabels, num_classes = 4)
     # Train the model on the training data
-    model.fit(trainData, oneHotLabels, epochs = 10, batch_size = 100)
-    return model
+    history = model.fit(trainData, oneHotLabels, epochs = 10, batch_size = 100, verbose = 1)
+    return model, history
 
 def EvaluateModel(model, testData, testLabels):
     # Evaluate the model on the testing set
@@ -111,7 +108,10 @@ model = CreateModel(numInputFeatures)
 print("created model")
 model = CompileModel(model)
 print("compiled model")
-model = TrainModel(model, trainData, trainLabels)
+model, history = TrainModel(model, trainData, trainLabels)
+
+print(history)
+
 print("trained model")
 EvaluateModel(model, cvData, cvLabels)
 print("evaluated")
