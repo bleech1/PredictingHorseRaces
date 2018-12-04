@@ -33,6 +33,7 @@ def JoinData(horseInfoFile, resultsFile, barrierFile, outFile):
     # Write out to a CSV file
     merged.to_csv(outFile, index = False)
 
+
 def AddCategoricalFeature(filename, feature):
     df = pd.read_csv(filename)
     featureValues = set()
@@ -80,18 +81,24 @@ def AddNumberOpponents(filename):
     df["numOpponents"] = pd.Series(horseNameCol, index = df.index)
     df.to_csv(filename, index = False)
 
+
 def CategoricalFeatureToNum(filename, featureName):
     categoricalValues = []
     numericalValues = []
     indexHorse = 0
     df = pd.read_csv(filename)
     for index, row in df.iterrows():
-        if(row[featureName] in categoricalValues):
-            numericalValues.append(categoricalValues.index(row[featureName]))
+        feature = str(row[featureName])
+        if (len(feature) != 0):
+            feature = feature.lower()
+        if(feature in categoricalValues):
+            numericalValues.append(categoricalValues.index(feature))
         else:
-            categoricalValues.append(row[featureName])
+            categoricalValues.append(feature)
             numericalValues.append(indexHorse)
             indexHorse += 1
+
+    print(len(set(numericalValues)))
 
     df[featureName + "Numerical"] = pd.Series(numericalValues, index=df.index)
     df.to_csv(filename, index=False)
@@ -106,9 +113,7 @@ def CreateDataSets(combinedFilename):
         # First row is headers
         headers = next(csvReader)
         # Only take the headers that we care about (look below for explanation)
-        #headers = [headers[10]] + [headers[25]] + [headers[49]]
-        headers = [headers[1]] + [headers[3]] + [headers[43]] + [headers[44]] + [headers[45]] + [headers[46]] + [headers[47]] + [headers[48]] + [headers[49]]
-        #headers = [headers[1]] + headers[3:]
+        headers = [headers[10]] + [headers[25]] + [headers[36]] + headers[49:]
         for row in csvReader:
             # 0th element is an index value we can ignore
 
@@ -123,8 +128,13 @@ def CreateDataSets(combinedFilename):
             else:
                 labels.append(int(row[24]))
 
-            #row = [row[10]] + [row[25]] + [row[49]]
-            row = [row[1]] + [row[3]] + [row[43]] + [row[44]] + [row[45]] + [row[46]] + [row[47]] + [row[48]] + [row[49]]
+            # If empty, fill in winodds with 30 because that is the mean
+            # of the winodds for the horses that do have odds
+            if (row[36] == ""):
+                row[36] = "30"
+
+
+            row = [row[10]] + [row[25]] + [row[36]] + row[49:]
 
             arr = np.array(row)
             #print(arr)
@@ -181,15 +191,34 @@ print("joined")
 
 # Get the other horses in the race
 AddNumberOpponents(OUTFILE)
-
-
+print("Adding numerical horse variable")
 CategoricalFeatureToNum(OUTFILE, "horse")
-CategoricalFeatureToNum(OUTFILE, "jockey")
+print("Adding numerical trainer variable")
 CategoricalFeatureToNum(OUTFILE, "trainer_x")
-CategoricalFeatureToNum(OUTFILE, "venue")
+print("Adding numerical country variable")
 CategoricalFeatureToNum(OUTFILE, "country")
+print("Adding numerical sire variable")
 CategoricalFeatureToNum(OUTFILE, "sire")
-CategoricalFeatureToNum(OUTFILE, "dam")
+# print("Adding numerical dam variable")
+# CategoricalFeatureToNum(OUTFILE, "dam")
+# print("Adding numerical owner variable")
+# CategoricalFeatureToNum(OUTFILE, "owner")
+print("Adding numerical sex variable")
+CategoricalFeatureToNum(OUTFILE, "sex")
+print("Adding numerical course variable")
+CategoricalFeatureToNum(OUTFILE, "course")
+# print("Adding numerical date variable")
+# CategoricalFeatureToNum(OUTFILE, "date")
+print("Adding numerical going variable")
+CategoricalFeatureToNum(OUTFILE, "going")
+print("Adding numerical venue variable")
+CategoricalFeatureToNum(OUTFILE, "venue")
+print("Adding numerical jockey variable")
+CategoricalFeatureToNum(OUTFILE, "jockey")
+print("Adding numerical import variable")
+CategoricalFeatureToNum(OUTFILE, "import_type")
+
+
 trainData, trainLabels, cvData, cvLabels, testData, testLabels, headers = CreateDataSets(OUTFILE)
 print("created data sets")
 numInputFeatures = len(headers)
