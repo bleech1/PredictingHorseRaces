@@ -5,6 +5,7 @@
 from keras.models import Sequential
 from keras.layers import Dense, Activation
 from keras.utils import to_categorical
+import keras.backend as K
 import pandas as pd
 import numpy as np
 import csv
@@ -31,7 +32,6 @@ def JoinData(horseInfoFile, resultsFile, barrierFile, outFile):
 
     # Write out to a CSV file
     merged.to_csv(outFile, index = False)
-
 
 def AddCategoricalFeature(filename, feature):
     df = pd.read_csv(filename)
@@ -80,6 +80,22 @@ def AddNumberOpponents(filename):
     df["numOpponents"] = pd.Series(horseNameCol, index = df.index)
     df.to_csv(filename, index = False)
 
+def CategoricalFeatureToNum(filename, featureName):
+    categoricalValues = []
+    numericalValues = []
+    indexHorse = 0
+    df = pd.read_csv(filename)
+    for index, row in df.iterrows():
+        if(row[featureName] in categoricalValues):
+            numericalValues.append(categoricalValues.index(row[featureName]))
+        else:
+            categoricalValues.append(row[featureName])
+            numericalValues.append(indexHorse)
+            indexHorse += 1
+
+    df[featureName + "Numerical"] = pd.Series(numericalValues, index=df.index)
+    df.to_csv(filename, index=False)
+
 
 def CreateDataSets(combinedFilename):
     features = []
@@ -90,7 +106,8 @@ def CreateDataSets(combinedFilename):
         # First row is headers
         headers = next(csvReader)
         # Only take the headers that we care about (look below for explanation)
-        headers = [headers[10]] + [headers[25]] + [headers[49]]
+        #headers = [headers[10]] + [headers[25]] + [headers[49]]
+        headers = [headers[1]] + [headers[3]] + [headers[43]] + [headers[44]] + [headers[45]] + [headers[46]] + [headers[47]] + [headers[48]] + [headers[49]]
         #headers = [headers[1]] + headers[3:]
         for row in csvReader:
             # 0th element is an index value we can ignore
@@ -106,13 +123,17 @@ def CreateDataSets(combinedFilename):
             else:
                 labels.append(int(row[24]))
 
-            row = [row[10]] + [row[25]] + [row[49]]
+            #row = [row[10]] + [row[25]] + [row[49]]
+            row = [row[1]] + [row[3]] + [row[43]] + [row[44]] + [row[45]] + [row[46]] + [row[47]] + [row[48]] + [row[49]]
+
             arr = np.array(row)
             #print(arr)
             arr = np.asfarray(arr)
             features.append(np.array(arr))
 
     matrix = np.vstack(features)
+
+
 
     # Split into train, cv, and test sets
     numTrain = math.floor(matrix.shape[0] * 0.7)
@@ -132,9 +153,12 @@ def CreateModel(numInputFeatures):
     model.add(Dense(4, activation = "sigmoid"))
     return model
 
+def get_categorical_accuracy_keras(y_true, y_pred):
+    return K.mean(K.equal(K.argmax(y_true, axis=1), K.argmax(y_pred, axis=1)))
+
 def CompileModel(model):
     # Compile the model
-    model.compile(optimizer = "rmsprop", loss = "categorical_crossentropy", metrics = ["accuracy"])
+    model.compile(optimizer = "rmsprop", loss = "categorical_crossentropy", metrics = [get_categorical_accuracy_keras])
     return model
 
 def TrainModel(model, trainData, trainLabels):
@@ -159,6 +183,13 @@ print("joined")
 AddNumberOpponents(OUTFILE)
 
 
+CategoricalFeatureToNum(OUTFILE, "horse")
+CategoricalFeatureToNum(OUTFILE, "jockey")
+CategoricalFeatureToNum(OUTFILE, "trainer_x")
+CategoricalFeatureToNum(OUTFILE, "venue")
+CategoricalFeatureToNum(OUTFILE, "country")
+CategoricalFeatureToNum(OUTFILE, "sire")
+CategoricalFeatureToNum(OUTFILE, "dam")
 trainData, trainLabels, cvData, cvLabels, testData, testLabels, headers = CreateDataSets(OUTFILE)
 print("created data sets")
 numInputFeatures = len(headers)
