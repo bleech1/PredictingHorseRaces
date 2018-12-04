@@ -104,6 +104,31 @@ def CategoricalFeatureToNum(filename, featureName):
     df[featureName + "Numerical"] = pd.Series(numericalValues, index=df.index)
     df.to_csv(filename, index=False)
 
+def AddNumTimesWon(filename, featureName):
+    df = pd.read_csv(filename)
+    values = []
+
+    numTimesWon = dict()
+    # Go through dataset and find how many times each has won
+    for index, row in df.iterrows():
+        feature = str(row[featureName])
+        if (row["plc"] == "1"):
+            if feature in numTimesWon:
+                numTimesWon[feature] += 1
+            else:
+                numTimesWon[feature] = 1
+    # Fill in feature array with how many times it has won
+    for index, row in df.iterrows():
+        feature = str(row[featureName])
+        if (feature in numTimesWon):
+            values += [numTimesWon[feature]]
+        else:
+            values += [0]
+
+
+    df[featureName + "WinTimes"] = pd.Series(values, index=df.index)
+    df.to_csv(filename, index=False)
+
 
 def CreateDataSets(combinedFilename):
     features = []
@@ -114,7 +139,8 @@ def CreateDataSets(combinedFilename):
         # First row is headers
         headers = next(csvReader)
         # Only take the headers that we care about (look below for explanation)
-        headers = [headers[10]] + [headers[25]] + [headers[36]] + headers[49:]
+        headers = [headers[10]] + [headers[25]] + [headers[36]] + headers[49:] + [headers[24]]
+
         for row in csvReader:
             # 0th element is an index value we can ignore
 
@@ -134,8 +160,10 @@ def CreateDataSets(combinedFilename):
             if (row[36] == ""):
                 row[36] = "30.122"
 
+            if (row[24] == "" or not (row[24][0].isdigit() and row[24][-1].isdigit())):
+                row[24] = "4"
 
-            row = [row[10]] + [row[25]] + [row[36]] + row[49:]
+            row = [row[10]] + [row[25]] + [row[36]] + row[49:] + [row[24]]
 
             arr = np.array(row)
             #print(arr)
@@ -143,6 +171,7 @@ def CreateDataSets(combinedFilename):
             features.append(np.array(arr))
 
     matrix = np.vstack(features)
+
 
 
 
@@ -160,8 +189,8 @@ def CreateDataSets(combinedFilename):
 def CreateModel(numInputFeatures):
     # Create a model
     model = Sequential()
-    model.add(Dense(50, activation = "relu", input_dim = numInputFeatures))
-    model.add(Dense(4, activation = "sigmoid"))
+    model.add(Dense(10, activation = "relu", input_dim = numInputFeatures))
+    model.add(Dense(4, activation = "softmax"))
     return model
 
 def get_categorical_accuracy_keras(y_true, y_pred):
@@ -169,7 +198,7 @@ def get_categorical_accuracy_keras(y_true, y_pred):
 
 def CompileModel(model):
     # Compile the model
-    model.compile(optimizer = "rmsprop", loss = "categorical_crossentropy", metrics = [get_categorical_accuracy_keras])
+    model.compile(optimizer = "rmsprop", loss = "mean_squared_error", metrics = [get_categorical_accuracy_keras])
     return model
 
 def TrainModel(model, trainData, trainLabels):
@@ -200,7 +229,7 @@ def BetOnRaces(model, cvData, cvLabels):
         # Run model on all the examples with real odds
         row = np.array([row])
         result = model.predict(row)
-        print(result)
+        #print(result)
 
 
 print("start")
@@ -210,6 +239,8 @@ print("joined")
 
 # Get the other horses in the race
 AddNumberOpponents(OUTFILE)
+
+# Convert string features to numbers
 print("Adding numerical horse variable")
 CategoricalFeatureToNum(OUTFILE, "horse")
 print("Adding numerical trainer variable")
@@ -236,6 +267,11 @@ print("Adding numerical jockey variable")
 CategoricalFeatureToNum(OUTFILE, "jockey")
 print("Adding numerical import variable")
 CategoricalFeatureToNum(OUTFILE, "import_type")
+
+# Add features for number of times horse/trainer/jockey has won
+AddNumTimesWon(OUTFILE, "horse")
+AddNumTimesWon(OUTFILE, "trainer_x")
+AddNumTimesWon(OUTFILE, "jockey")
 
 
 trainData, trainLabels, cvData, cvLabels, testData, testLabels, headers = CreateDataSets(OUTFILE)
