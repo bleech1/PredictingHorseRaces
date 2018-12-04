@@ -5,6 +5,7 @@
 from keras.models import Sequential
 from keras.layers import Dense, Activation
 from keras.utils import to_categorical
+from sklearn.metrics import classification_report
 import keras.backend as K
 import pandas as pd
 import numpy as np
@@ -184,6 +185,10 @@ def EvaluateModel(model, testData, testLabels):
     score = model.evaluate(testData, oneHotLabels)
     print(score)
 
+def PrintPrecisionAccuracy(model, testData, testLabels):
+    y_pred = model.predict_classes(testData)
+    print(classification_report(testLabels, y_pred))
+
 print("start")
 JoinData(HORSE_INFO_FILE, RESULTS_FILE, BARRIER_FILE, OUTFILE)
 print("joined")
@@ -234,3 +239,6 @@ print(history)
 print("trained model")
 EvaluateModel(model, cvData, cvLabels)
 print("evaluated")
+
+print("predictions made")
+PrintPrecisionAccuracy(model, cvData, cvLabels)
