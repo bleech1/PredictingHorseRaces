@@ -5,6 +5,7 @@
 from keras.models import Sequential
 from keras.layers import Dense, Activation
 from keras.utils import to_categorical
+from itertools import product
 from sklearn.metrics import classification_report
 import keras.backend as K
 import pandas as pd
@@ -125,7 +126,6 @@ def AddNumTimesWon(filename, featureName):
         else:
             values += [0]
 
-
     df[featureName + "WinTimes"] = pd.Series(values, index=df.index)
     df.to_csv(filename, index=False)
 
@@ -139,7 +139,7 @@ def CreateDataSets(combinedFilename):
         # First row is headers
         headers = next(csvReader)
         # Only take the headers that we care about (look below for explanation)
-        headers = [headers[10]] + [headers[25]] + [headers[36]] + headers[49:] + [headers[24]]
+        headers = [headers[10]] + [headers[25]] + [headers[36]] + headers[50:] + [headers[49]]
 
         for row in csvReader:
             # 0th element is an index value we can ignore
@@ -154,6 +154,7 @@ def CreateDataSets(combinedFilename):
                 labels.append(0)
             else:
                 labels.append(int(row[24]))
+            #labels.append(int(row[49]))
 
             # If empty, fill in winodds with 30.122 because that is the mean
             # of the winodds for the horses that do have odds
@@ -163,7 +164,7 @@ def CreateDataSets(combinedFilename):
             if (row[24] == "" or not (row[24][0].isdigit() and row[24][-1].isdigit())):
                 row[24] = "4"
 
-            row = [row[10]] + [row[25]] + [row[36]] + row[49:] + [row[24]]
+            row = [row[10]] + [row[25]] + [row[36]] + row[50:] + [row[49]]
 
             arr = np.array(row)
             #print(arr)
@@ -190,7 +191,7 @@ def CreateModel(numInputFeatures):
     # Create a model
     model = Sequential()
     model.add(Dense(10, activation = "relu", input_dim = numInputFeatures))
-    model.add(Dense(4, activation = "softmax"))
+    model.add(Dense(33, activation = "softmax"))
     return model
 
 def get_categorical_accuracy_keras(y_true, y_pred):
@@ -203,14 +204,14 @@ def CompileModel(model):
 
 def TrainModel(model, trainData, trainLabels):
     # Turn the labels into one hot labels
-    oneHotLabels = to_categorical(trainLabels, num_classes = 4)
+    oneHotLabels = to_categorical(trainLabels, num_classes = 33)
     # Train the model on the training data
     history = model.fit(trainData, oneHotLabels, epochs = 10, batch_size = 100, verbose = 1)
     return model, history
 
 def EvaluateModel(model, testData, testLabels):
     # Evaluate the model on the testing set
-    oneHotLabels = to_categorical(testLabels, num_classes = 4)
+    oneHotLabels = to_categorical(testLabels, num_classes = 33)
     score = model.evaluate(testData, oneHotLabels)
     print(score)
 
@@ -236,6 +237,8 @@ print("start")
 JoinData(HORSE_INFO_FILE, RESULTS_FILE, BARRIER_FILE, OUTFILE)
 print("joined")
 # AddCategoricalFeature(OUTFILE, "horse")
+
+#CategoricalFeatureToNum(OUTFILE, "plc")
 
 # Get the other horses in the race
 AddNumberOpponents(OUTFILE)
@@ -275,22 +278,75 @@ AddNumTimesWon(OUTFILE, "jockey")
 
 
 trainData, trainLabels, cvData, cvLabels, testData, testLabels, headers = CreateDataSets(OUTFILE)
+print(testData)
 print("created data sets")
 numInputFeatures = len(headers)
 print(numInputFeatures)
-model = CreateModel(numInputFeatures)
-print("created model")
-model = CompileModel(model)
-print("compiled model")
-model, history = TrainModel(model, trainData, trainLabels)
 
-print(history)
 
-print("trained model")
-EvaluateModel(model, cvData, cvLabels)
-print("evaluated")
 
-print("predictions made")
+
+model = Sequential()
+model.add(Dense(30, activation = "relu", input_dim = numInputFeatures))
+model.add(Dense(30, activation = "relu"))
+model.add(Dense(30, activation = "relu"))
+model.add(Dense(4, activation = "softmax"))
+
+
+def w_categorical_crossentropy(y_true, y_pred):
+    # Customize weight array to punish for misclassifying 1, 2, or 3 as a 1
+    weights = np.ones((4, 4))
+    weights[1, 0] = 1.5
+    weights[2, 0] = 1.5
+    weights[3, 0] = 1.5
+    weights[0, 1] = 1.5
+    weights[0, 2] = 1.5
+    weights[0, 3] = 1.5
+
+
+
+    nb_cl = len(weights)
+    final_mask = K.zeros_like(y_pred[:, 0])
+    y_pred_max = K.max(y_pred, axis=1)
+    y_pred_max = K.expand_dims(y_pred_max, 1)
+    y_pred_max_mat = K.equal(y_pred, y_pred_max)
+    for c_p, c_t in product(range(nb_cl), range(nb_cl)):
+        final_mask += (K.cast(weights[c_t, c_p],K.floatx()) * K.cast(y_pred_max_mat[:, c_p] ,K.floatx())* K.cast(y_true[:, c_t],K.floatx()))
+    return K.categorical_crossentropy(y_pred, y_true) * final_mask
+
+#WeightedLoss = w_categorical_crossentropy
+#WeightedLoss.__name__ ='w_categorical_crossentropy'
+
+model.compile(optimizer = "rmsprop", loss = w_categorical_crossentropy, metrics = [get_categorical_accuracy_keras, "accuracy"])
+
+oneHotLabels = to_categorical(trainLabels, num_classes = 4)
+# Train the model on the training data
+history = model.fit(trainData, oneHotLabels, epochs = 10, batch_size = 100, verbose = 1)
+
+oneHotLabels = to_categorical(testLabels, num_classes = 4)
+score = model.evaluate(testData, oneHotLabels, batch_size = 100)
+print(score)
+
+
+
+
+
+
+
+#
+# model = CreateModel(numInputFeatures)
+# print("created model")
+# model = CompileModel(model)
+# print("compiled model")
+# model, history = TrainModel(model, trainData, trainLabels)
+#
+# print(history)
+#
+# print("trained model")
+# EvaluateModel(model, cvData, cvLabels)
+# print("evaluated")
+#
+# print("predictions made")
 PrintPrecisionAccuracy(model, cvData, cvLabels)
 
 
