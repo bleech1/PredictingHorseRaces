@@ -129,10 +129,10 @@ def CreateDataSets(combinedFilename):
             else:
                 labels.append(int(row[24]))
 
-            # If empty, fill in winodds with 30 because that is the mean
+            # If empty, fill in winodds with 30.122 because that is the mean
             # of the winodds for the horses that do have odds
             if (row[36] == ""):
-                row[36] = "30"
+                row[36] = "30.122"
 
 
             row = [row[10]] + [row[25]] + [row[36]] + row[49:]
@@ -185,9 +185,23 @@ def EvaluateModel(model, testData, testLabels):
     score = model.evaluate(testData, oneHotLabels)
     print(score)
 
+
 def PrintPrecisionAccuracy(model, testData, testLabels):
     y_pred = model.predict_classes(testData)
     print(classification_report(testLabels, y_pred))
+
+
+def BetOnRaces(model, cvData, cvLabels):
+    # Go through each race that has a horse's odds (30.122 is the average
+    # that we used to fill in missing values)
+    for row in cvData:
+        if (row[2] == 30.122):
+            continue
+        # Run model on all the examples with real odds
+        row = np.array([row])
+        result = model.predict(row)
+        print(result)
+
 
 print("start")
 JoinData(HORSE_INFO_FILE, RESULTS_FILE, BARRIER_FILE, OUTFILE)
@@ -242,3 +256,6 @@ print("evaluated")
 
 print("predictions made")
 PrintPrecisionAccuracy(model, cvData, cvLabels)
+
+
+BetOnRaces(model, cvData, cvLabels)
