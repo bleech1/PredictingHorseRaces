@@ -3,7 +3,7 @@
 # Colleen Caveney and Brendan Leech
 
 from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Dense, Dropout, Activation
 from keras.utils import to_categorical
 from itertools import product
 from sklearn.metrics import classification_report
@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 import csv
 import math
+import tensorflow as tf
 
 HORSE_INFO_FILE = "./horse-racing-dataset-for-experts-hong-kong/horse_info.csv"
 RESULTS_FILE = "./horse-racing-dataset-for-experts-hong-kong/results.csv"
@@ -161,9 +162,9 @@ def CreateDataSets(combinedFilename):
 def get_categorical_accuracy_keras(y_true, y_pred):
     return K.mean(K.equal(K.argmax(y_true, axis=1), K.argmax(y_pred, axis=1)))
 
-def PrintPrecisionAccuracy(model, testData, testLabels):
-    y_pred = model.predict_classes(testData)
-    print(classification_report(testLabels, y_pred))
+def PrintPrecisionAccuracy(model, cvData, cvLabels):
+    y_pred = model.predict_classes(cvData)
+    print(classification_report(cvLabels, y_pred))
 
 def w_categorical_crossentropy(y_true, y_pred):
     # Customize weight array to punish for misclassifying 1, 2, or 3 as a 1
@@ -220,13 +221,14 @@ def BetOnRaces(model, cvData, cvLabels):
             if cvLabels[i] == 1:
                 withoutModelWinnings += (100 * showOdds)
             else:
-                withoutModelWinnings -= (100 * showOdds)
+                withoutModelWinnings -= 100
         # Predict show, so w/ model bet 100
+        #print(result)
         if result[0] > 0.8:
             if cvLabels[i] == 1:
                 withModelWinnings += (100 * showOdds)
             else:
-                withModelWinnings -= (100 * showOdds)
+                withModelWinnings -= 100
 
     # print("Skipped:", skipCount, "/", len(cvData))
     # print("Show:", showCount, "/", len(cvData))
@@ -271,7 +273,47 @@ model.add(Dense(30, activation = "relu", input_dim = numInputFeatures))
 model.add(Dense(1, activation = "sigmoid"))
 
 
-model.compile(optimizer = "rmsprop", loss = "binary_crossentropy", metrics = [get_categorical_accuracy_keras, "accuracy"])
+
+
+
+
+
+
+def as_keras_metric(method):
+    import functools
+    from keras import backend as K
+    import tensorflow as tf
+    @functools.wraps(method)
+    def wrapper(self, args, **kwargs):
+        """ Wrapper for turning tensorflow metrics into keras metrics """
+        value, update_op = method(self, args, **kwargs)
+        K.get_session().run(tf.local_variables_initializer())
+        with tf.control_dependencies([update_op]):
+            value = tf.identity(value)
+        return value
+    return wrapper
+
+precision = as_keras_metric(tf.metrics.precision)
+recall = as_keras_metric(tf.metrics.recall)
+
+def f1Score(y_true, y_pred):
+    p = precision(y_true, y_pred)
+    r = recall(y_true, y_pred)
+
+    return 2 * (p * r) / (p + r)
+
+
+
+
+
+
+
+
+
+
+
+
+model.compile(optimizer = "rmsprop", loss = "binary_crossentropy", metrics = ["accuracy", precision, recall, f1Score])
 
 #oneHotLabels = to_categorical(trainLabels, num_classes = 2)
 # Train the model on the training data
