@@ -34,11 +34,13 @@ def JoinData(horseInfoFile, resultsFile, barrierFile, outFile):
     merged.to_csv(outFile, index = False)
 
 
-def AddNumTimesWon(filename, featureName):
+def AddNumTimesandPercentWon(filename, featureName):
     df = pd.read_csv(filename)
     values = []
+    percentages = []
 
     numTimesWon = dict()
+    numTimesRaced = dict()
     # Go through dataset and find how many times each has won
     for index, row in df.iterrows():
         feature = str(row[featureName])
@@ -47,15 +49,23 @@ def AddNumTimesWon(filename, featureName):
                 numTimesWon[feature] += 1
             else:
                 numTimesWon[feature] = 1
+        if feature in numTimesRaced:
+            numTimesRaced[feature] += 1
+        else:
+            numTimesRaced[feature] = 1
     # Fill in feature array with how many times it has won
     for index, row in df.iterrows():
         feature = str(row[featureName])
         if (feature in numTimesWon):
             values += [numTimesWon[feature]]
+            if (feature in numTimesRaced):
+                percentages += [str(int(numTimesWon[feature])/int(numTimesRaced[feature]))]
         else:
             values += [0]
+            percentages += [0]
 
     df[featureName + "WinTimes"] = pd.Series(values, index=df.index)
+    df[featureName + "WinPercentage"] = pd.Series(percentages, index=df.index)
     df.to_csv(filename, index=False)
 
 
@@ -129,6 +139,6 @@ CategoricalFeatureToNum(OUTFILE, "sex")
 print("Adding numerical course variable")
 CategoricalFeatureToNum(OUTFILE, "course")
 
-AddNumTimesWon(OUTFILE, "horse")
-AddNumTimesWon(OUTFILE, "trainer_x")
-AddNumTimesWon(OUTFILE, "jockey")
+AddNumTimesandPercentWon(OUTFILE, "horse")
+AddNumTimesandPercentWon(OUTFILE, "trainer_x")
+AddNumTimesandPercentWon(OUTFILE, "jockey")
