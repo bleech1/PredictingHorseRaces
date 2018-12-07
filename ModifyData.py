@@ -117,6 +117,93 @@ def AddIsFavorite(filename):
     df["isFavorite"] = pd.Series(favoriteValues, index=df.index)
     df.to_csv(filename, index=False)
 
+def takeFirst(elem):
+    return elem[0]
+
+#if a horse is racing in a distance over 1 mile, and 3/4 or 4/4 of it's previous
+#races are <1 mile, horse might not do as well with new dist
+def AddNewDistIndicator(filename):
+    df = pd.read_csv(filename)
+    #keep track for each horse: race distance and it's date
+    previousDists = dict()
+    for index, row in df.iterrows():
+        horseName = str(row["horse"])
+        if horseName in previousDists:
+            previousDists[horseName].append([str(row["date"]), str(row["distance"])])
+        else:
+            previousDists[horseName] = [[str(row["date"]), str(row["distance"])]]
+    #order by dates
+    for element in previousDists:
+        previousDists[element].sort(key=takeFirst)
+    #iterate again, horse/race combo, find that date, and mark 1 if 3/4 or 4/4 or less than a mile and this dist is > mile
+    newDistIndicator = []
+    for index, row in df.iterrows():
+        horseName = str(row["horse"])
+        raceDate = str(row["date"])
+        raceDist = str(row["distance"])
+        previousRaces = previousDists[horseName];
+        mostRecentRaceDists = []
+        for element in previousRaces:
+            if element[0] < raceDate:
+                mostRecentRaceDists.append(element[1])
+                if len(mostRecentRaceDists) > 4:
+                    mostRecentRaceDists.pop(0)
+        # if current race distance is greater than 1 mile
+        if raceDist > '1600':
+            # keep track of recent races under 1 mile
+            underMileDistCount = 0
+            for element in mostRecentRaceDists:
+                if element < '1600':
+                    underMileDistCount += 1
+            # if majority of most recent races are under 1 mile
+            if underMileDistCount > 2:
+                newDistIndicator += [1]
+            else:
+                newDistIndicator += [0]
+        else:
+            newDistIndicator += [0]
+    df["newDistIndicator"] = pd.Series(newDistIndicator, index=df.index)
+    df.to_csv(filename, index=False)
+
+
+def AddAvgSpeedRating(filename):
+    df = pd.read_csv(filename)
+    #for each item, calculate time/dist = speed
+    #keep track of speeds for specific date/dist/venue combo
+    allSpeeds = dict()
+    for item, row in df.iterrows():
+        finishtime = str(row['finishtime'])
+        if(finishtime == "---" or finishtime == "nan" or finishtime == "10"):
+            finishtime = "0.0.00"
+        finishtime = float(finishtime[:-3])
+        speed = finishtime/row['distance']
+        identifier = str(row["date"]) + str(row["distance"]) + str(row["venue"])
+        if(speed != 0):
+            if identifier in allSpeeds:
+                allSpeeds[identifier].append(speed)
+            else:
+                allSpeeds[identifier] = [speed]
+    #calculate pars for dist/venue/date with averagetime/dist
+    speedRating = []
+    for item, row in df.iterrows():
+        identifier = str(row["date"]) + str(row["distance"]) + str(row["venue"])
+        if(identifier in allSpeeds):
+            count = len(allSpeeds[identifier])
+            if count > 0:
+                parSpeed = sum(allSpeeds[identifier])/count
+                finishtime = str(row['finishtime'])
+                if(finishtime == "---" or finishtime == "nan" or finishtime == "10"):
+                    finishtime = "0.0.00"
+                finishtime = float(finishtime[:-3])
+                val = finishtime/row['distance']
+                speedRating.append(val - parSpeed)
+        #if finishtime wasn't available, give speed=parSpeed, so difference = 0
+        else:
+            speedRating.append(0)
+    df["speedRating"] = pd.Series(speedRating, index=df.index)
+    df.to_csv(filename, index=False)
+
+
 
 
 print("start")
@@ -125,6 +212,12 @@ print("joined")
 
 print("Adding favorites")
 AddIsFavorite(OUTFILE)
+
+print("Adding speed rating")
+AddAvgSpeedRating(OUTFILE)
+
+print("Adding new distance indicator")
+AddNewDistIndicator(OUTFILE)
 
 # print("Adding numerical horse variable")
 # CategoricalFeatureToNum(OUTFILE, "horse")

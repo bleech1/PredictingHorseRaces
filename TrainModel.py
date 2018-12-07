@@ -179,7 +179,7 @@ model.compile(optimizer = "rmsprop", loss = "binary_crossentropy", metrics = ["a
 
 #oneHotLabels = to_categorical(trainLabels, num_classes = 2)
 # Train the model on the training data
-history = model.fit(trainData, trainLabels, epochs = 10, batch_size = 100, verbose = 1)
+history = model.fit(trainData, trainLabels, epochs = 100, batch_size = 100, verbose = 1)
 
 #oneHotLabels = to_categorical(testLabels, num_classes = 2)
 score = model.evaluate(testData, testLabels, batch_size = 100)
