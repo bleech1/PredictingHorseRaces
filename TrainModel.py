@@ -13,6 +13,7 @@ import numpy as np
 import csv
 import math
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 DATAFILE = "combined_data.csv"
 
@@ -136,6 +137,7 @@ def BetOnRaces(model, cvData, cvLabels):
 
     print("Without model winnings:", withoutModelWinnings)
     print("With model winnings:", withModelWinnings)
+    return (withModelWinnings - withoutModelWinnings)
 
 
 
@@ -163,6 +165,37 @@ def f1Score(y_true, y_pred):
     return 2 * (p * r) / (p + r)
 
 
+def runMultiple(trainData, trainLabels, cvData, cvLabels, testData, testLabels, headers):
+    runs  = []
+    for i in range(50):
+        runs.append(i+1)
+    f1 = []
+    precision = []
+    recall = []
+    differenceInWinnings = []
+    for i in range(50):
+        history = model.fit(trainData, trainLabels, epochs = 4, batch_size = 100, verbose = 1)
+        score = model.evaluate(testData, testLabels, batch_size = 100)
+        print("score ", score)
+        f1.append(score[4])
+        precision.append(score[2])
+        recall.append(score[3])
+        differenceInWinnings.append(BetOnRaces(model, cvData, cvLabels))
+    print(differenceInWinnings)
+    print(sum(differenceInWinnings))
+    print(sum(differenceInWinnings)/50)
+    plt.figure(1)
+    plt.plot(runs, f1)
+    plt.figure(2)
+    plt.plot(runs, precision)
+    plt.figure(3)
+    plt.plot(runs, recall)
+    plt.figure(4)
+    plt.plot(runs, differenceInWinnings)
+    plt.show()
+
+
+
 
 trainData, trainLabels, cvData, cvLabels, testData, testLabels, headers = CreateDataSets(DATAFILE)
 print("created data sets")
@@ -179,13 +212,23 @@ model.compile(optimizer = "rmsprop", loss = "binary_crossentropy", metrics = ["a
 
 #oneHotLabels = to_categorical(trainLabels, num_classes = 2)
 # Train the model on the training data
-history = model.fit(trainData, trainLabels, epochs = 100, batch_size = 100, verbose = 1)
+# history = model.fit(trainData, trainLabels, epochs = 4, batch_size = 100, verbose = 1)
 
 #oneHotLabels = to_categorical(testLabels, num_classes = 2)
-score = model.evaluate(testData, testLabels, batch_size = 100)
-print(score)
+# score = model.evaluate(testData, testLabels, batch_size = 100)
+#print(score)
 
+runMultiple(trainData, trainLabels, cvData, cvLabels, testData, testLabels, headers)
 
-PrintPrecisionAccuracy(model, cvData, cvLabels)
+#plot loss function
+# plt.plot(history.history['loss'])
+# plt.show()
 
-BetOnRaces(model, cvData, cvLabels)
+# print("Training\n")
+# PrintPrecisionAccuracy(model, trainData, trainLabels)
+# print("Cross Validation\n")
+# PrintPrecisionAccuracy(model, cvData, cvLabels)
+# print("Testing\n")
+# PrintPrecisionAccuracy(model, testData, testLabels)
+
+# BetOnRaces(model, cvData, cvLabels)

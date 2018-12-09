@@ -117,14 +117,18 @@ def AddIsFavorite(filename):
     df["isFavorite"] = pd.Series(favoriteValues, index=df.index)
     df.to_csv(filename, index=False)
 
+#helper function
 def takeFirst(elem):
     return elem[0]
 
-#if a horse is racing in a distance over 1 mile, and 3/4 or 4/4 of it's previous
-#races are <1 mile, horse might not do as well with new dist
+#This is an indicator for a horse racing at a distance longer than it is used to
+#from the past few races. Could have a negative impact on horse's outcome.
+#Adds a column with value 1 if the horse is racing in a race with distance over 1 mile,
+#and the majority of its most recent races (at most 4 previous races) are less than 1 mile.
+#Has value 0 otherwise.
 def AddNewDistIndicator(filename):
     df = pd.read_csv(filename)
-    #keep track for each horse: race distance and it's date
+    #keep track for each horse: race distance and that race's date
     previousDists = dict()
     for index, row in df.iterrows():
         horseName = str(row["horse"])
@@ -132,10 +136,13 @@ def AddNewDistIndicator(filename):
             previousDists[horseName].append([str(row["date"]), str(row["distance"])])
         else:
             previousDists[horseName] = [[str(row["date"]), str(row["distance"])]]
-    #order by dates
+    #order each horse's races by dates
     for element in previousDists:
         previousDists[element].sort(key=takeFirst)
-    #iterate again, horse/race combo, find that date, and mark 1 if 3/4 or 4/4 or less than a mile and this dist is > mile
+    #iterate dataset again
+    #for each horse/race combo, if the distance is >1 mile, find that date in previousDists
+    #create a list of the 4 most recent races
+    #mark 1 if 3/4 or 4/4 or less than a mile, 0 otherwise
     newDistIndicator = []
     for index, row in df.iterrows():
         horseName = str(row["horse"])
@@ -166,36 +173,48 @@ def AddNewDistIndicator(filename):
     df.to_csv(filename, index=False)
 
 
+#Calculates an average speed rating for each horse/race combo given the horse's previous races
+#Speed rating = difference between horse's speed in that specific race and the par speed for that course
+#Par speed = average speed of horses on particular date on a particular course (unique date, dist, venue)
+#A horse's speed rating will be positive if they raced faster than the average of all horses on that course on that day
 def AddAvgSpeedRating(filename):
     df = pd.read_csv(filename)
-    #for each item, calculate time/dist = speed
-    #keep track of speeds for specific date/dist/venue combo
+    #for each item, calculate speed = time/dist
+    #keep track of all speeds for specific date/dist/venue combo
     allSpeeds = dict()
     for item, row in df.iterrows():
+        #clean the data for finishtime
         finishtime = str(row['finishtime'])
         if(finishtime == "---" or finishtime == "nan" or finishtime == "10"):
             finishtime = "0.0.00"
         finishtime = float(finishtime[:-3])
+        #calculate speed
         speed = finishtime/row['distance']
         identifier = str(row["date"]) + str(row["distance"]) + str(row["venue"])
         if(speed != 0):
+            #append speed to array for the specific date/dist/venue combo
             if identifier in allSpeeds:
                 allSpeeds[identifier].append(speed)
             else:
                 allSpeeds[identifier] = [speed]
-    #calculate pars for dist/venue/date with averagetime/dist
+    #calculate pars for dist/venue/date with average time/dist
+    #calculate speed rating for each horse/race combo by (speed - parSpeed for that date/course)
     speedRating = []
     for item, row in df.iterrows():
         identifier = str(row["date"]) + str(row["distance"]) + str(row["venue"])
         if(identifier in allSpeeds):
             count = len(allSpeeds[identifier])
             if count > 0:
+                #calculate par speed
                 parSpeed = sum(allSpeeds[identifier])/count
+                #clean finishtime data
                 finishtime = str(row['finishtime'])
                 if(finishtime == "---" or finishtime == "nan" or finishtime == "10"):
                     finishtime = "0.0.00"
                 finishtime = float(finishtime[:-3])
+                #calculate speed for this horse/race combo
                 val = finishtime/row['distance']
+                #append difference in par and speed to speedRating array
                 speedRating.append(val - parSpeed)
         #if finishtime wasn't available, give speed=parSpeed, so difference = 0
         else:
