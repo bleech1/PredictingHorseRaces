@@ -35,6 +35,7 @@ def JoinData(horseInfoFile, resultsFile, barrierFile, outFile):
 
 
 def AddNumTimesandPercentWon(filename, featureName):
+    print("Adding number of times", featureName, "won")
     df = pd.read_csv(filename)
     values = []
     percentages = []
@@ -72,6 +73,7 @@ def AddNumTimesandPercentWon(filename, featureName):
 
 
 def CategoricalFeatureToNum(filename, featureName):
+    print("Adding numerical", featureName, "variable")
     categoricalValues = []
     numericalValues = []
     indexHorse = 0
@@ -85,9 +87,6 @@ def CategoricalFeatureToNum(filename, featureName):
         else:
             categoricalValues.append(feature)
             numericalValues.append(indexHorse)
-            indexHorse += 1
-
-    print(len(set(numericalValues)))
 
     df[featureName + "Numerical"] = pd.Series(numericalValues, index=df.index)
     df.to_csv(filename, index=False)
@@ -242,13 +241,9 @@ AddNewDistIndicator(OUTFILE)
 # CategoricalFeatureToNum(OUTFILE, "horse")
 # print("Adding numerical trainer variable")
 # CategoricalFeatureToNum(OUTFILE, "trainer_x")
-print("Adding numerical country variable")
 CategoricalFeatureToNum(OUTFILE, "country")
-print("Adding numerical sire variable")
 CategoricalFeatureToNum(OUTFILE, "sire")
-print("Adding numerical sex variable")
 CategoricalFeatureToNum(OUTFILE, "sex")
-print("Adding numerical course variable")
 CategoricalFeatureToNum(OUTFILE, "course")
 
 AddNumTimesandPercentWon(OUTFILE, "horse")
